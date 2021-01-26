@@ -4,6 +4,12 @@ A Clojure wrapper for the maven-indexer-reader project.
 
 ## Usage
 
+The `ReadableRes` protocol is used for accessing remote index files. A default implementation for the `URI` type is added.
+
+The `WritableRes` protocol is used to save the state of the indexer.
+
+The following example prints out all the artifacts from Clojars.
+
 ```
 (def clojars-root (new java.net.URI "http://repo.clojars.org/.index/"))
 
