@@ -1,4 +1,5 @@
 (ns indexer-reader-clj.core
+  (:require [clojure.java.io :as io])
   (:import org.apache.maven.index.reader.Record))
 
 
@@ -31,12 +32,12 @@
 
 
 (extend-type java.io.File
-  WritableRes (locate-out [file name] (clojure.java.io/output-stream file))
-  ReadableRes (locate-in [file name] (clojure.java.io/input-stream file)))
+  WritableRes (locate-out [file name] (io/output-stream (io/file file name)))
+  ReadableRes (locate-in [file name] (io/input-stream (io/file file name))))
 
 
 (extend-type java.net.URI
-  ReadableRes (locate-in [uri name] (clojure.java.io/input-stream (.resolve uri name))))
+  ReadableRes (locate-in [uri name] (io/input-stream (.resolve uri name))))
 
 
 (defn index-reader [reader writer]
