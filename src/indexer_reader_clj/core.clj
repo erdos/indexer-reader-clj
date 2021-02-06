@@ -2,6 +2,7 @@
   (:require [clojure.java.io :as io])
   (:import org.apache.maven.index.reader.Record))
 
+(set! *warn-on-reflection* true)
 
 (defprotocol ReadableRes
   (locate-in [_ name] "Returns an input-stream"))
@@ -48,42 +49,76 @@
 (def ^:private record-expander (new org.apache.maven.index.reader.RecordExpander))
 
 
+(defmulti ^:private map-record-impl (fn [^Record record] (.name (.getType record))))
+
+
 (defn map-record [map]
-  (let [record (.apply record-expander map)]
-    {:repository-id  (.get record Record/REPOSITORY_ID)
-     :all-groups     (vec (.get record Record/ALL_GROUPS))
-     :root-groups    (vec (.get record Record/ROOT_GROUPS))
-     :rec-modified   (.get record Record/REC_MODIFIED)
-     :group-id       (.get record Record/GROUP_ID)
-     :artifact-id    (.get record Record/ARTIFACT_ID)
-     :version        (.get record Record/VERSION)
-     :classifier     (.get record Record/CLASSIFIER)
-     :packaging      (.get record Record/PACKAGING)
-     :file-extension (.get record Record/FILE_EXTENSION)
-     :file-modified  (.get record Record/FILE_MODIFIED)
-     :file-size      (.get record Record/FILE_SIZE)
-     :has-sources    (.get record Record/HAS_SOURCES)
-     :has-javadoc    (.get record Record/HAS_JAVADOC)
-     :has-signature  (.get record Record/HAS_SIGNATURE)
-     :name           (.get record Record/NAME)
-     :description    (.get record Record/DESCRIPTION)
-     :sha1           (.get record Record/SHA1)
-     :classnames     (vec (.get record Record/CLASSNAMES))
-     :plugin-prefix  (.get record Record/PLUGIN_PREFIX)
-     :plugin-goals   (vec (.get record Record/PLUGIN_GOALS))
-     :osgi-bundle-symbolic-name  (.get record Record/OSGI_BUNDLE_SYMBOLIC_NAME)
-     :osgi-bundle-version        (.get record Record/OSGI_BUNDLE_VERSION)
-     :osgi-export-package        (.get record Record/OSGI_EXPORT_PACKAGE)
-     :osgi-export-service        (.get record Record/OSGI_EXPORT_SERVICE)
-     :osgi-bundle-description    (.get record Record/OSGI_BUNDLE_DESCRIPTION)
-     :osgi-bundle-name           (.get record Record/OSGI_BUNDLE_NAME)
-     :osgi-bundle-license        (.get record Record/OSGI_BUNDLE_LICENSE)
-     :osgi-export-docurl         (.get record Record/OSGI_EXPORT_DOCURL)
-     :osgi-import-package        (.get record Record/OSGI_IMPORT_PACKAGE)
-     :osgi-require-bundle        (.get record Record/OSGI_REQUIRE_BUNDLE)
-     :osgi-provide-capability    (.get record Record/OSGI_PROVIDE_CAPABILITY)
-     :osgi-require-capability    (.get record Record/OSGI_REQUIRE_CAPABILITY)
-     :osgi-fragment-host         (.get record Record/OSGI_FRAGMENT_HOST)
-     :osgi-bree                  (.get record Record/OSGI_BREE)
-     :sha-256                    (.get record Record/SHA_256)
-    }))
+  (map-record-impl (.apply record-expander map)))
+
+
+(defmethod map-record-impl "ALL_GROUPS" [^Record record]
+  {:record-type :all-groups
+   :all-groups (vec (.get record Record/ALL_GROUPS))})
+
+
+(defmethod map-record-impl "DESCRIPTOR" [^Record record]
+  {:record-type  :descriptor
+   :repository-id (.get record Record/REPOSITORY_ID)})
+
+
+(defmethod map-record-impl "ROOT_GROUPS" [^Record record]
+  {:record-type :root-groups
+   :root-groups (vec (.get record Record/ROOT_GROUPS))})
+
+
+(defmethod map-record-impl "ARTIFACT_REMOVE" [^Record record]
+  {:record-type    :artifact-remove
+   :rec-modified   (.get record Record/REC_MODIFIED)
+   :group-id       (.get record Record/GROUP_ID)
+   :artifact-id    (.get record Record/ARTIFACT_ID)
+   :version        (.get record Record/VERSION)
+   :classifier     (.get record Record/CLASSIFIER)
+   :file-extension (.get record Record/FILE_EXTENSION)
+   :packaging      (.get record Record/PACKAGING)})
+
+
+(defmethod map-record-impl "ARTIFACT_ADD" [^Record record]
+  {:record-type    :artifact-add
+   :rec-modified   (.get record Record/REC_MODIFIED)
+   :group-id       (.get record Record/GROUP_ID)
+   :artifact-id    (.get record Record/ARTIFACT_ID)
+   :version        (.get record Record/VERSION)
+   :classifier     (.get record Record/CLASSIFIER)
+   :file-extension (.get record Record/FILE_EXTENSION)
+   :file-modified  (.get record Record/FILE_MODIFIED)
+   :file-size      (.get record Record/FILE_SIZE)
+   :packaging      (.get record Record/PACKAGING)
+   :has-sources    (.get record Record/HAS_SOURCES)
+   :has-javadoc    (.get record Record/HAS_JAVADOC)
+   :has-signature  (.get record Record/HAS_SIGNATURE)
+   :name           (.get record Record/NAME)
+   :description    (.get record Record/DESCRIPTION)
+   :sha1           (.get record Record/SHA1)
+   :classnames     (vec (.get record Record/CLASSNAMES))
+   :plugin-prefix  (.get record Record/PLUGIN_PREFIX)
+   :plugin-goals   (vec (.get record Record/PLUGIN_GOALS))})
+
+
+(comment
+    :osgi-bundle-symbolic-name  (.get record Record/OSGI_BUNDLE_SYMBOLIC_NAME)
+    :osgi-bundle-version        (.get record Record/OSGI_BUNDLE_VERSION)
+    :osgi-export-package        (.get record Record/OSGI_EXPORT_PACKAGE)
+    :osgi-export-service        (.get record Record/OSGI_EXPORT_SERVICE)
+    :osgi-bundle-description    (.get record Record/OSGI_BUNDLE_DESCRIPTION)
+    :osgi-bundle-name           (.get record Record/OSGI_BUNDLE_NAME)
+    :osgi-bundle-license        (.get record Record/OSGI_BUNDLE_LICENSE)
+    :osgi-export-docurl         (.get record Record/OSGI_EXPORT_DOCURL)
+    :osgi-import-package        (.get record Record/OSGI_IMPORT_PACKAGE)
+    :osgi-require-bundle        (.get record Record/OSGI_REQUIRE_BUNDLE)
+    :osgi-provide-capability    (.get record Record/OSGI_PROVIDE_CAPABILITY)
+    :osgi-require-capability    (.get record Record/OSGI_REQUIRE_CAPABILITY)
+    :osgi-fragment-host         (.get record Record/OSGI_FRAGMENT_HOST)
+    :osgi-bree                  (.get record Record/OSGI_BREE)
+    :sha-256                    (.get record Record/SHA_256)
+)
+
