@@ -13,10 +13,11 @@ The following example prints out all the artifacts from Clojars.
 ```
 (def clojars-root (new java.net.URI "http://repo.clojars.org/.index/"))
 
-(doseq [chunk (index-reader clojars-root nil)]
-  (println :name (.getName chunk))
-  (doseq [record chunk]
-    (println (map-record record))))
+(with-open [reader (index-reader clojars-root nil)]
+  (doseq [chunk reader]
+    (println :name (.getName chunk))
+    (doseq [record chunk]
+      (println (map-record record)))))
 ```
 
 ## License
