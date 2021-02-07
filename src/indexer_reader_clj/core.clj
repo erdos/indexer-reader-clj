@@ -9,7 +9,9 @@
 
 
 (defprotocol WritableRes
-  (locate-out [_ name] "Returns an output-stream"))
+  (locate-out [_ name] "Returns an output-stream")
+  (close-out [_] "Closes the resource")
+  (close-named-out [_ name] "Closes the resource"))
 
 
 (defn ->ResourceHandler [iores]
@@ -18,7 +20,9 @@
     org.apache.maven.index.reader.ResourceHandler
     (locate [_ name]
       (reify org.apache.maven.index.reader.ResourceHandler$Resource
-        (read [_] (locate-in iores name))))))
+        (read [_] (locate-in iores name))))
+    java.lang.AutoCloseable
+    (close [_] (comment))))
 
 
 (defn ->WritableResourceHandler [iores]
@@ -29,21 +33,30 @@
     (locate [_ name]
       (reify org.apache.maven.index.reader.WritableResourceHandler$WritableResource
         (read [_] (locate-in iores name))
-        (write [_] (locate-out iores name))))))
+        (write [_] (locate-out iores name))
+        java.lang.AutoCloseable
+        (close [_] (close-named-out iores name))))
+    java.lang.AutoCloseable
+    (close [_] (close-out iores))))
 
 
 (extend-type java.io.File
-  WritableRes (locate-out [file name] (io/output-stream (io/file file name)))
-  ReadableRes (locate-in [file name] (io/input-stream (io/file file name))))
+  WritableRes
+  (locate-out [file name] (io/output-stream (io/file file name)))
+  (close-out [file] nil)
+  (close-named-out [file name] nil)
+  ReadableRes
+  (locate-in [file name] (io/input-stream (io/file file name))))
 
 
 (extend-type java.net.URI
-  ReadableRes (locate-in [uri name] (io/input-stream (.resolve uri name))))
+  ReadableRes (locate-in [uri name] (io/input-stream (.resolve ^java.net.URI uri ^String name))))
 
 
 (defn index-reader [reader writer]
-  (assert reader)
-  (new org.apache.maven.index.reader.IndexReader writer (->ResourceHandler reader)))
+  (new org.apache.maven.index.reader.IndexReader
+       (some-> writer ->WritableResourceHandler)
+       (->ResourceHandler reader)))
 
 
 (def ^:private record-expander (new org.apache.maven.index.reader.RecordExpander))
@@ -53,7 +66,7 @@
 
 
 (defn map-record [map]
-  (map-record-impl (.apply record-expander map)))
+  (map-record-impl (.apply ^org.apache.maven.index.reader.RecordExpander record-expander map)))
 
 
 (defmethod map-record-impl "ALL_GROUPS" [^Record record]
@@ -122,3 +135,26 @@
     :sha-256                    (.get record Record/SHA_256)
 )
 
+(deftype GetSetStore [^:unsynchronized-mutable state accessor]
+  WritableRes
+    (locate-out [store name]
+     (doto (new java.io.ByteArrayOutputStream)
+       (->> (assoc state name) (set! state))))
+     (close-out [store] nil)
+     (close-named-out [store name]
+       (accessor name (str (get state name)))
+       (set! state (dissoc state name)))
+  ReadableRes
+    (locate-in [store name]
+      (some-> (accessor name) (str) (.getBytes) (java.io.ByteArrayInputStream.))))
+
+(ns-unmap *ns* '->GetSetStore)
+
+(defn ->GetSetStore [accessor]
+  (assert (fn? accessor))
+  (GetSetStore. {} accessor))
+
+(defn ->InMemoryStore []
+  (let [mem (volatile! {})]
+    (->GetSetStore (fn ([name] (get @mem name))
+                       ([name value] (vswap! mem assoc name value))))))
